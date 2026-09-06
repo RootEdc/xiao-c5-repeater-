@@ -15,28 +15,35 @@ jobs:
       - name: Auto-fix project structure
         run: |
           echo "Naprawiam strukture katalogow ESP-IDF..."
-          # 1. Tworzymy wymagany folder main/
           mkdir -p main
           
-          # 2. Szukamy Twojego pliku main.c i kopiujemy go w bezpieczne miejsce
+          # Kopiujemy kod do folderu main
           find . -name "main.c" -exec cp {} main/main.c \;
           
-          # 3. Nadpisujemy glowny plik CMakeLists.txt prawidlowa zawartoscia
+          # Zabezpieczenie przed brakiem definicji TCP
+          sed -i '1s/^/#include "lwip\/sockets.h"\n#ifndef IP_PROTO_TCP\n#define IP_PROTO_TCP 6\n#endif\n/' main/main.c
+          
           cat << 'EOF' > CMakeLists.txt
           cmake_minimum_required(VERSION 3.16)
           include($ENV{IDF_PATH}/tools/cmake/project.cmake)
           project(xiao_c5_repeater)
           EOF
           
-          # 4. Generujemy plik CMakeLists.txt dla komponentu main/
           cat << 'EOF' > main/CMakeLists.txt
           idf_component_register(SRCS "main.c"
                                  INCLUDE_DIRS "."
                                  REQUIRES esp_wifi nvs_flash esp_event esp_netif lwip)
           EOF
           
-          echo "Struktura gotowa do kompilacji:"
-          find . -maxdepth 2 -not -path '*/.*'
+          # Wymuszamy włączenie NAPT i buforów bez względu na pliki repozytorium
+          cat << 'EOF' > sdkconfig.defaults
+          CONFIG_LWIP_NETIF_NAPT=y
+          CONFIG_LWIP_PORTMAP=y
+          CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
+          CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32
+          CONFIG_ESP_WIFI_TX_BUFFER_TYPE=1
+          CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=32
+          EOF
 
       - name: Build firmware
         run: |

@@ -12,16 +12,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show directory structure
+      - name: Auto-fix project structure
         run: |
-          pwd
-          find . -maxdepth 3 -not -path '*/.*'
+          echo "Naprawiam strukture katalogow ESP-IDF..."
+          # 1. Tworzymy wymagany folder main/
+          mkdir -p main
+          
+          # 2. Szukamy Twojego pliku main.c i kopiujemy go w bezpieczne miejsce
+          find . -name "main.c" -exec cp {} main/main.c \;
+          
+          # 3. Nadpisujemy glowny plik CMakeLists.txt prawidlowa zawartoscia
+          cat << 'EOF' > CMakeLists.txt
+          cmake_minimum_required(VERSION 3.16)
+          include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+          project(xiao_c5_repeater)
+          EOF
+          
+          # 4. Generujemy plik CMakeLists.txt dla komponentu main/
+          cat << 'EOF' > main/CMakeLists.txt
+          idf_component_register(SRCS "main.c"
+                                 INCLUDE_DIRS "."
+                                 REQUIRES esp_wifi nvs_flash esp_event esp_netif lwip)
+          EOF
+          
+          echo "Struktura gotowa do kompilacji:"
+          find . -maxdepth 2 -not -path '*/.*'
 
       - name: Build firmware
         run: |
           . $IDF_PATH/export.sh
           idf.py set-target esp32c5
-          idf.py build || (cat build/log/idf_py_stderr_output_* 2>/dev/null; cat build/log/idf_py_stdout_output_* 2>/dev/null; exit 1)
+          idf.py build
           esptool.py --chip esp32c5 merge_bin -o build/merged-repeater-esp32c5.bin @build/flash_args
 
       - name: Upload binary artifact

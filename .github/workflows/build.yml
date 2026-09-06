@@ -1,0 +1,27 @@
+name: Build ESP32-C5 Repeater
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:release-v5.5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build firmware
+        run: |
+          . $IDF_PATH/export.sh
+          idf.py set-target esp32c5
+          idf.py build
+          esptool.py --chip esp32c5 merge_bin -o build/merged-repeater-esp32c5.bin @build/flash_args
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32c5-repeater-firmware
+          path: build/merged-repeater-esp32c5.bin
+          

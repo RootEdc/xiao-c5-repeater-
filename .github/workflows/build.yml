@@ -12,11 +12,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Show directory structure
+        run: |
+          pwd
+          find . -maxdepth 3 -not -path '*/.*'
+
       - name: Build firmware
         run: |
           . $IDF_PATH/export.sh
           idf.py set-target esp32c5
-          idf.py build
+          idf.py build || (cat build/log/idf_py_stderr_output_* 2>/dev/null; cat build/log/idf_py_stdout_output_* 2>/dev/null; exit 1)
           esptool.py --chip esp32c5 merge_bin -o build/merged-repeater-esp32c5.bin @build/flash_args
 
       - name: Upload binary artifact

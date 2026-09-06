@@ -17,11 +17,10 @@ jobs:
           echo "Naprawiam strukture katalogow ESP-IDF..."
           mkdir -p main
           
-          # Kopiujemy kod do folderu main
           find . -name "main.c" -exec cp {} main/main.c \;
           
-          # Zabezpieczenie przed brakiem definicji TCP
-          sed -i '1s/^/#include "lwip\/sockets.h"\n#ifndef IP_PROTO_TCP\n#define IP_PROTO_TCP 6\n#endif\n/' main/main.c
+          # Dorzucamy wymagane nagłówki do obsługi TCP i NAPT
+          sed -i '1s/^/#include "lwip\/sockets.h"\n#include "lwip\/lwip_napt.h"\n#ifndef IP_PROTO_TCP\n#define IP_PROTO_TCP 6\n#endif\n/' main/main.c
           
           cat << 'EOF' > CMakeLists.txt
           cmake_minimum_required(VERSION 3.16)
@@ -35,9 +34,10 @@ jobs:
                                  REQUIRES esp_wifi nvs_flash esp_event esp_netif lwip)
           EOF
           
-          # Wymuszamy włączenie NAPT i buforów bez względu na pliki repozytorium
+          # Prawidłowe zmienne NAPT dla ESP-IDF v5.5
           cat << 'EOF' > sdkconfig.defaults
-          CONFIG_LWIP_NETIF_NAPT=y
+          CONFIG_LWIP_NAPT=y
+          CONFIG_LWIP_IP_FORWARD=y
           CONFIG_LWIP_PORTMAP=y
           CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
           CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32

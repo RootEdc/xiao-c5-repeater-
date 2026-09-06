@@ -17,7 +17,6 @@ jobs:
           echo "Naprawiam strukture katalogow i kolejnosc naglowkow..."
           mkdir -p main
           
-          # Kopiujemy kod do poprawnego folderu main
           find . -maxdepth 2 -name "main.c" -exec cp {} main/main.c \;
           
           cat << 'EOF' > CMakeLists.txt
@@ -41,18 +40,15 @@ jobs:
           CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=32
           EOF
 
-          # Skrypt układający nagłówki w idealnej kolejności, bez dotykania Twoich haseł WiFi
           cat << 'EOF' > fix_code.py
           import re
           with open('main/main.c', 'r') as f:
               code = f.read()
           
-          # Usuń stare, źle ulokowane nagłówki
           code = re.sub(r'#include "lwip/lwip_napt\.h".*?\n', '', code)
           code = re.sub(r'#include "lwip/sockets\.h".*?\n', '', code)
           code = re.sub(r'#ifndef IP_PROTO_TCP\n#define IP_PROTO_TCP 6\n#endif\n', '', code)
           
-          # Prawidłowy blok nagłówków (opt.h MUSI być przed lwip_napt.h)
           correct_headers = """
           #include "lwip/opt.h"
           #include "lwip/sockets.h"
@@ -62,7 +58,6 @@ jobs:
           #endif
           """
           
-          # Wstawiamy blok tuż pod standardowymi nagłówkami systemowymi ESP-IDF
           code = code.replace('#include "nvs_flash.h"', '#include "nvs_flash.h"\n' + correct_headers)
           
           with open('main/main.c', 'w') as f:
@@ -73,7 +68,12 @@ jobs:
       - name: Build firmware
         run: |
           . $IDF_PATH/export.sh
+          # Usunięcie blokady konfiguracji (auto-akceptacja nowości)
+          export BATCH_BUILD=1
+          export IDF_TARGET=esp32c5
+          # Generowanie czystej konfiguracji przed budową
           idf.py set-target esp32c5
+          idf.py reconfigure
           idf.py build
           esptool.py --chip esp32c5 merge_bin -o build/merged-repeater-esp32c5.bin @build/flash_args
 
